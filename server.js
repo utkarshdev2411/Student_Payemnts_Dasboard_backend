@@ -18,17 +18,17 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Import routes (will be created later)
-// const authRoutes = require('./routes/auth');
-// const paymentRoutes = require('./routes/payments');
-// const transactionRoutes = require('./routes/transactions');
-// const webhookRoutes = require('./routes/webhook');
+// Import routes
+const authRoutes = require('./routes/auth');
+const paymentRoutes = require('./routes/payments');
+const transactionRoutes = require('./routes/transactions');
+const webhookRoutes = require('./routes/webhook');
 
-// Route middleware (will be uncommented when routes are created)
-// app.use('/api/auth', authRoutes);
-// app.use('/api/payments', paymentRoutes);
-// app.use('/api/transactions', transactionRoutes);
-// app.use('/api/webhook', webhookRoutes);
+// Route middleware
+app.use('/api/auth', authRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/webhook', webhookRoutes);
 
 // Basic health check route
 app.get('/', (req, res) => {
