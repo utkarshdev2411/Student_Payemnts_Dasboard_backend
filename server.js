@@ -52,10 +52,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Handle 404 routes
-app.use('*', (req, res) => {
+// Handle 404 routes - must be last middleware
+app.use((req, res) => {
   res.status(404).json({
-    message: 'Route not found'
+    message: 'Route not found',
+    path: req.originalUrl,
+    method: req.method
   });
 });
 
@@ -63,9 +65,9 @@ app.use('*', (req, res) => {
 const PORT = process.env.PORT || 8000;
 
 app.listen(PORT, () => {
-  console.log(` Server is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Server URL: http://localhost:${PORT}`);
+  console.log(`[INFO] Server is running on port ${PORT}`);
+  console.log(`[INFO] Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`[INFO] Server URL: http://localhost:${PORT}`);
 });
 
 module.exports = app;

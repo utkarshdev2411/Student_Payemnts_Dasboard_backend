@@ -8,26 +8,26 @@ const connectDB = async () => {
       // useUnifiedTopology: true,
     });
 
-    console.log(`📊 MongoDB Connected: ${conn.connection.host}`);
-    console.log(`📝 Database Name: ${conn.connection.name}`);
+    console.log(`[INFO] MongoDB Connected: ${conn.connection.host}`);
+    console.log(`[INFO] Database Name: ${conn.connection.name}`);
     
     // Handle connection events
     mongoose.connection.on('error', (err) => {
-      console.error('❌ MongoDB connection error:', err);
+      console.error('[ERROR] MongoDB connection error:', err);
     });
 
     mongoose.connection.on('disconnected', () => {
-      console.warn('⚠️ MongoDB disconnected');
+      console.warn('[WARN] MongoDB disconnected');
     });
 
     // Graceful shutdown
     process.on('SIGINT', async () => {
       try {
         await mongoose.connection.close();
-        console.log('🔌 MongoDB connection closed through app termination');
+        console.log('[INFO] MongoDB connection closed through app termination');
         process.exit(0);
       } catch (err) {
-        console.error('Error during graceful shutdown:', err);
+        console.error('[ERROR] Error during graceful shutdown:', err);
         process.exit(1);
       }
     });

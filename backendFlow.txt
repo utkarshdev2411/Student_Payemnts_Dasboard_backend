@@ -1,268 +1,202 @@
-Backend API Documentation: School Payment Microservice
+Excellent idea. Consolidating everything into a single, updated, and structured document is the perfect next step.
 
-Version: 1.0.0
+Here is the new, comprehensive backend documentation. It incorporates the missing points we discussed, adds more detail based on your project files and requirements, and includes a progress tracker at the end to show the current status of your codebase.
 
-===============================================================================
+You can save this content as `COMPREHENSIVE_BACKEND_DOCS.md` in your project root.
 
-1. OVERVIEW
+```markdown
+# Comprehensive Backend API Documentation v2.0
+## School Payment Microservice
 
-This document provides detailed information for backend developers working on 
-the School Payment and Dashboard microservice. The primary objective of this 
-service is to manage payment orders, process transactions by integrating with 
-a third-party payment gateway, handle status updates via webhooks, and provide 
-endpoints to query transaction data.
+**Version:** 2.0.0
+**Last Updated:** 2025-09-17
 
-===============================================================================
+---
 
-2. TECHNOLOGY STACK
+### 1. Overview
+This document provides a complete guide for backend developers. Its purpose is to detail the architecture, endpoints, and logic for the School Payment and Dashboard microservice. The service handles payment creation, transaction processing via a third-party gateway, status updates via webhooks, and data retrieval for the dashboard.
 
-* Runtime: Node.js
-* Framework: Express.js
-* Database: MongoDB with Mongoose ODM
-* Authentication: JSON Web Tokens (JWT)
-* Environment Management: dotenv
-* Validation: express-validator (or similar)
+---
 
-===============================================================================
+### 2. Technology Stack & Project Structure
 
-3. PROJECT SETUP
+* **Runtime**: Node.js
+* **Framework**: Express.js
+* **Database**: MongoDB with Mongoose ODM
+* **Authentication**: JSON Web Tokens (JWT)
+* **Validation**: `express-validator`
+* **Key Dependencies**: `bcryptjs`, `cors`, `dotenv`
 
-Follow these steps to set up the development environment locally.
+**Folder Structure:**
+```
 
-1. Clone the Repository
-   git clone <repository-url>
-   cd school-payment-app/backend
+/backend
+|-- /config          \# DB connection (database.js), JWT helpers (jwt.js)
+|-- /controllers     \# Request handling logic for each route
+|-- /middleware      \# Authentication (auth.js), error handling
+|-- /models          \# Mongoose schemas (userModel.js, orderModel.js, etc.)
+|-- /routes          \# API route definitions
+|-- .env             \# Environment variables (from .env.example)
+|-- server.js        \# Main server entry point
+\`-- package.json
 
-2. Install Dependencies
-   npm install
+````
 
-3. Configure Environment Variables
-   - Create a .env file in the /backend root directory.
-   - Copy the contents from .env.example (or the section below) into the .env 
-     file and fill in the required values, especially your MongoDB Atlas 
-     connection string.
+---
 
-4. Run the Development Server
-   npm run dev
-   
-   The server will start on the port specified in your .env file 
-   (e.g., http://localhost:8000).
+### 3. Environment Variables
+These variables must be defined in a `.env` file. A template is available in `.env.example`.
 
-===============================================================================
+| Variable | Description | Example Value |
+| :--- | :--- | :--- |
+| `PORT` | The port for the Express server. | `8000` |
+| `MONGO_URI` | Connection string for MongoDB Atlas. | `mongodb+srv://user:pass@...` |
+| `JWT_SECRET` | Secret key for signing internal API JWTs. | `a_very_long_and_random_secret` |
+| `JWT_EXPIRY` | Expiration time for internal API JWTs. | `1d` |
+| `PG_KEY` | Secret Key for signing JWTs sent to the payment gateway. | `edvtest01` |
+| `PG_API_KEY` | Bearer Token for authenticating with the payment gateway. | `eyJhbGciOi...` |
+| `SCHOOL_ID` | The default school ID for creating payments. | `65b0e6293e9f76a9694d84b4` |
 
-4. ENVIRONMENT VARIABLES
+---
 
-The following variables must be defined in the .env file for the application 
-to run correctly.
+### 4. Database Schemas
+Defined in the `/models` directory. All models include `timestamps: true`.
 
-Variable       | Description                                              | Example Value
----------------|----------------------------------------------------------|------------------
-PORT           | The port on which the Express server will run.          | 8000
-MONGO_URI      | Connection string for your MongoDB Atlas cluster.       | mongodb+srv://user:pass@cluster.mongodb.net/school-db
-JWT_SECRET     | A secret key for signing and verifying JWTs.            | a_very_long_and_random_secret_string
-JWT_EXPIRY     | The expiration time for JWTs.                           | 1d
-PG_KEY         | The key provided for the payment gateway.               | edvtest01
-PG_API_KEY     | The JWT API key for authenticating with the payment gateway. | eyJhbGciOi...
-SCHOOL_ID      | The default/test school ID for creating payments.       | 65b0e6293e9f76a9694d84b4
+* **`userModel.js`**: Stores user credentials. Passwords are automatically hashed pre-save using `bcryptjs`.
+* **`orderModel.js`**: Stores initial order details. Indexed on `school_id` and `student_info.id` for performance.
+* **`orderStatusModel.js`**: Stores the result of a transaction. Indexed on `collect_id`, `status`, and `payment_time`.
+* **`webhookLogModel.js`**: Logs all incoming webhook payloads for auditing.
 
-===============================================================================
+---
 
-5. DATABASE SCHEMAS
+### 5. API Endpoints
 
-All schemas are defined in the /models directory.
+#### 5.1 Authentication
 
-5.1 userModel.js
-Stores user credentials for accessing protected APIs.
+**`POST /api/auth/register`**
+* **Description**: Creates a new user.
+* **Protection**: None
+* **Request Body**:
+    ```json
+    { "username": "newuser", "password": "password123" }
+    ```
+* **Success Response (201 Created)**:
+    ```json
+    { "userId": "...", "username": "newuser" }
+    ```
 
-Field      | Type   | Constraints                | Description
------------|--------|----------------------------|-----------------------------
-username   | String | required, unique           | User's login name.
-password   | String | required, minlength: 6     | Hashed password of the user.
+**`POST /api/auth/login`**
+* **Description**: Authenticates a user and returns a JWT for accessing protected routes.
+* **Protection**: None
+* **Request Body**:
+    ```json
+    { "username": "admin", "password": "password123" }
+    ```
+* **Success Response (200 OK)**:
+    ```json
+    { "token": "eyJhbGciOi..." }
+    ```
 
-5.2 orderModel.js
-Stores the initial order information before a payment is attempted.
+#### 5.2 Payment Gateway
 
-Field          | Type     | Constraints      | Description
----------------|----------|------------------|----------------------------------------
-_id            | ObjectId | auto-generated   | Unique identifier for the order. This is used as collect_id.
-school_id      | String   | required         | ID of the school initiating the order.
-trustee_id     | String   |                  | ID of the trustee, if applicable.
-student_info   | Object   | required         | Object containing student details (name, id, email).
-gateway_name   | String   |                  | Name of the payment gateway used.
-
-5.3 orderStatusModel.js
-Stores the detailed status and result of a payment transaction.
-
-Field              | Type     | Constraints           | Description
--------------------|----------|-----------------------|----------------------------------------
-collect_id         | ObjectId | required, ref: 'Order'| Reference to the corresponding Order document.
-order_amount       | Number   | required              | The original amount for the order.
-transaction_amount | Number   |                       | The actual amount paid (might include fees).
-payment_mode       | String   |                       | e.g., 'upi', 'card', 'netbanking'.
-payment_details    | String   |                       | e.g., UPI ID, last 4 digits of card.
-bank_reference     | String   |                       | Bank's unique reference for the transaction.
-payment_message    | String   |                       | A message from the gateway (e.g., 'payment success').
-status             | String   | required              | Transaction status (e.g., 'pending', 'success', 'failed').
-error_message      | String   |                       | Gateway error message, if any.
-payment_time       | Date     |                       | Timestamp of the successful payment.
-
-5.4 webhookLogModel.js
-Stores raw logs of all incoming webhooks for auditing and debugging.
-
-Field         | Type   | Constraints    | Description
---------------|--------|----------------|----------------------------------------
-received_at   | Date   | default: Now   | Timestamp when the webhook was received. 
-payload       | Object | required       | The full, raw JSON payload from the webhook.
-status        | String | required       | 'processed' or 'failed' based on handling.
-
-===============================================================================
-
-6. API ENDPOINTS
-
-6.1 Authentication
-
-POST /api/auth/login
-Authenticates a user and returns a JWT.
-
-* Protection: None
-* Request Body:
-  {
-    "username": "admin",
-    "password": "password123"
-  }
-
-* Success Response (200 OK):
-  {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-
-* Error Response (401 Unauthorized):
-  {
-    "message": "Invalid credentials"
-  }
-
-6.2 Payment Integration
-
-POST /api/payments/create-payment
-Creates an order and initiates a payment transaction with the gateway.
-
-* Protection: JWT Required
-* Request Body:
-  {
-    "order_amount": 2000,
-    "student_info": {
-      "name": "John Doe",
-      "id": "STU12345",
-      "email": "john.doe@example.com"
+**`POST /api/payments/create-payment`**
+* **Description**: Creates a local order record and calls the external payment gateway to get a payment link.
+* **Protection**: JWT Required
+* **Request Body**:
+    ```json
+    {
+      "order_amount": "2000",
+      "callback_url": "[https://your-frontend-domain.com/payment-status](https://your-frontend-domain.com/payment-status)",
+      "student_info": { "name": "John Doe", "id": "STU123", "email": "john.doe@example.com" }
     }
-  }
+    ```
+* **Success Response (200 OK)**:
+    ```json
+    { "payment_url": "[https://payment.gateway.com/pay/xyz123](https://payment.gateway.com/pay/xyz123)" }
+    ```
 
-* Success Response (200 OK):
-  Returns the URL for the user to be redirected to for completing the payment.
-  {
-    "payment_url": "https://payment.gateway.com/pay/xyz123"
-  }
+#### 5.3 Webhooks
 
-* Error Response (400 Bad Request):
-  {
-    "message": "Validation failed: order_amount is required"
-  }
+**`POST /api/webhook`**
+* **Description**: Public endpoint for the payment gateway to send transaction status updates.
+* **Protection**: None
+* **Success Response**: An empty body with status `200 OK` acknowledges receipt.
 
-6.3 Webhook Handling
+#### 5.4 Transaction Data Retrieval
 
-POST /api/webhook
-An endpoint for the payment gateway to send transaction status updates.
+**`GET /api/transactions`**
+* **Description**: Fetches a paginated list of all transactions by joining `Order` and `OrderStatus` data.
+* **Protection**: JWT Required
+* **Query Parameters**:
+    * `page` (Number, default: 1)
+    * `limit` (Number, default: 10)
+    * `sortBy` (String, default: `payment_time`)
+    * `order` (String, `asc` or `desc`, default: `desc`)
+    * `status` (String, e.g., 'success', 'pending')
+    * `schoolId` (String)
+    * `startDate` (String, ISO Date format)
+    * `endDate` (String, ISO Date format)
 
-* Protection: None (Publicly accessible, relies on payload integrity)
-* Request Body:
-  {
-    "status": 200,
-    "order_info": {
-      "order_id": "60c72b2f9b1d8c001f8e4c6a", // This is the collect_id
-      "order_amount": 2000,
-      "transaction_amount": 2000,
-      "gateway": "PhonePe",
-      "bank_reference": "YESBNK222",
-      "status": "success",
-      "payment_mode": "upi",
-      "payemnt_details": "success@ybl",
-      "Payment_message": "payment success",
-      "payment_time": "2025-04-23T08:14:21.945Z",
-      "error_message": "NA"
-    }
-  }
+**`GET /api/transactions/school/:schoolId`**
+* **Description**: Fetches all transactions for a specific school.
+* **Protection**: JWT Required
+* **Query Parameters**: Supports the same pagination and sorting as `/api/transactions`.
 
-* Success Response (200 OK): An empty body with status 200 acknowledges receipt.
-* Error Response (404 Not Found):
-  {
-    "message": "Order with collect_id 60c72b2... not found"
-  }
+**`GET /api/transaction-status/:collectId`**
+* **Description**: Checks the status of a specific transaction by first calling the external payment gateway API, then returning the status from our DB.
+* **Protection**: JWT Required
 
-6.4 Transaction Data
+---
 
-GET /api/transactions
-Fetches a paginated and sorted list of all transactions, joining Order and OrderStatus data.
+### 6. Core Logic Flows
 
-* Protection: JWT Required
-* Query Parameters:
-  - page (Number, default: 1): The page number for pagination.
-  - limit (Number, default: 10): The number of items per page.
-  - sortBy (String, default: payment_time): Field to sort by.
-  - order (String, default: desc): Sort order (asc or desc).
+#### 6.1 Payment Creation Flow (`/create-payment`)
+1.  Receive `order_amount`, `student_info`, and `callback_url` from the client.
+2.  Create a new `Order` document in MongoDB. The `_id` becomes our internal `collect_id`.
+3.  Create an initial `OrderStatus` document linked to the `collect_id` with `status: 'pending'`.
+4.  Generate a `sign` JWT with the payload `{ school_id, amount, callback_url }` signed using the `PG_KEY` secret.
+5.  Make a `POST` request to `https://dev-vanilla.edviron.com/erp/create-collect-request`.
+    * **Headers**: `Authorization: Bearer <PG_API_KEY>`
+    * **Body**: `{ school_id, amount, callback_url, sign }`
+6.  Extract `Collect_request_url` from the gateway's response and send it back to the client.
 
-* Success Response (200 OK):
-  {
-    "data": [
-      {
-        "collect_id": "60c72b2f9b1d8c001f8e4c6a",
-        "school_id": "65b0e6293e9f76a9694d84b4",
-        "gateway": "PhonePe",
-        "order_amount": 2000,
-        "transaction_amount": 2000,
-        "status": "success"
-      }
-    ],
-    "pagination": {
-      "currentPage": 1,
-      "totalPages": 5,
-      "totalItems": 50
-    }
-  }
+#### 6.2 Transaction Status Check Flow (`/transaction-status/:collectId`)
+1.  Receive `collectId` from the client's request parameters.
+2.  Generate a `sign` JWT with the payload `{ school_id, collect_request_id }` signed with the `PG_KEY` secret.
+3.  Make a `GET` request to the external gateway: `https://dev-vanilla.edviron.com/erp/collect-request/{collectId}?school_id={schoolId}&sign={sign}`.
+4.  (Optional but recommended) Update the local `OrderStatus` with the latest status from the gateway.
+5.  Retrieve the `OrderStatus` from the local database and return it to the client.
 
-GET /api/transactions/school/:schoolId
-Fetches all transactions for a specific school.
+---
 
-* Protection: JWT Required
-* URL Parameters:
-  - schoolId (String, required): The ID of the school.
-* Query Parameters: Same as /api/transactions for pagination and sorting.
-* Success Response (200 OK): Same structure as /api/transactions.
+### 7. Current Progress & Task Tracker
 
-GET /api/transaction-status/:collectId
-Checks the current status of a single transaction.
+This tracker reflects the current state of the backend codebase based on the provided files.
 
-* Protection: JWT Required
-* URL Parameters:
-  - collectId (String, required): The _id of the order.
+* `[x]` **Module 1: Project Foundation & Setup**
+    * `[x]` Initialize Node.js project and install dependencies.
+    * `[x]` Set up Express server in `server.js`.
+    * `[x]` Configure database connection (`config/database.js`).
+    * `[x]` Set up environment variables (`.env.example`).
 
-* Success Response (200 OK):
-  {
-    "collect_id": "60c72b2f9b1d8c001f8e4c6a",
-    "status": "success"
-  }
+* `[x]` **Module 2: Database Modeling**
+    * `[x]` Create User schema (`models/userModel.js`).
+    * `[x]` Create Order schema (`models/orderModel.js`).
+    * `[x]` Create OrderStatus schema (`models/orderStatusModel.js`).
+    * `[x]` Create WebhookLog schema (`models/webhookLogModel.js`).
 
-* Error Response (404 Not Found):
-  {
-    "message": "Transaction not found"
-  }
+* `[]` **Module 3: Routes & Controllers Implementation**
+    * `[x]` Create authentication middleware (`middleware/auth.js`).
+    * `[]` Create route files for auth, payments, transactions, and webhooks.
+    * `[]` Implement controller logic for user registration and login.
+    * `[]` Implement controller logic for the payment creation flow.
+    * `[]` Implement controller logic for the webhook handler.
+    * `[]` Implement controller logic for all transaction data endpoints (with aggregation, pagination, etc.).
 
-===============================================================================
+* `[]` **Module 4: Finalization**
+    * `[]` Implement comprehensive error handling and data validation on all routes.
+    * `[]` Create a Postman collection for API testing.
+    * `[]` Write unit/integration tests.
+    * `[]` Prepare for deployment (hosting setup, final README).
 
-7. GENERAL ERROR HANDLING
-
-Errors will be returned in a consistent JSON format.
-
-{
-  "message": "A human-readable error description.",
-  "errors": [ /* Optional array of validation errors */ ]
-}
+````
