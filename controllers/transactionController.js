@@ -94,7 +94,9 @@ const getAllTransactions = async (req, res) => {
     // Project final response format
     pipeline.push({
       $project: {
-        collect_id: 1,
+        _id: 0, // Exclude the default _id
+        collect_id: '$_id',
+        custom_order_id: '$_id', // Add this field for frontend requirement
         school_id: '$school_id',
         student_name: '$student_info.name',
         student_id: '$student_info.id',
