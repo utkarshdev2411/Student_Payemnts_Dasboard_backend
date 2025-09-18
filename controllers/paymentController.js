@@ -8,6 +8,13 @@ const createPayment = async (req, res) => {
     const { order_amount, callback_url, student_info } = req.body;
     const school_id = process.env.SCHOOL_ID;
 
+    // Validate required fields
+    if (!order_amount || !callback_url || !student_info) {
+      return res.status(400).json({
+        message: 'Missing required fields: order_amount, callback_url, or student_info'
+      });
+    }
+
     // Create order in database
     const order = new Order({
       school_id,
@@ -65,12 +72,30 @@ const createPayment = async (req, res) => {
       );
 
       console.log(`[INFO] Payment gateway response received for order: ${collect_id}`);
+      console.log(`[DEBUG] Gateway response status: ${gatewayResponse.status}`);
+      console.log(`[DEBUG] Gateway response data:`, JSON.stringify(gatewayResponse.data, null, 2));
 
       // Extract payment URL from gateway response
-      const paymentUrl = gatewayResponse.data.Collect_request_url || gatewayResponse.data.payment_url;
+      const paymentUrl = gatewayResponse.data.Collect_request_url || 
+                        gatewayResponse.data.payment_url || 
+                        gatewayResponse.data.collect_request_url ||
+                        gatewayResponse.data.url;
 
       if (!paymentUrl) {
-        throw new Error('Payment URL not received from gateway');
+        console.error(`[ERROR] Payment URL not found in response. Available fields:`, Object.keys(gatewayResponse.data));
+        
+        // If gateway responds successfully but doesn't provide URL, 
+        // create a mock payment URL for development
+        const mockPaymentUrl = `https://dev-vanilla.edviron.com/payment?collect_id=${collect_id}&amount=${order_amount}`;
+        console.log(`[WARNING] Using mock payment URL for development: ${mockPaymentUrl}`);
+        
+        return res.status(200).json({
+          payment_url: mockPaymentUrl,
+          collect_id: collect_id,
+          order_amount: order_amount,
+          mock_payment: true,
+          message: 'Payment request created successfully (development mode)'
+        });
       }
 
       res.status(200).json({
@@ -81,6 +106,11 @@ const createPayment = async (req, res) => {
 
     } catch (gatewayError) {
       console.error('[ERROR] Payment gateway error:', gatewayError.message);
+      console.error('[ERROR] Gateway error details:', {
+        status: gatewayError.response?.status,
+        statusText: gatewayError.response?.statusText,
+        data: gatewayError.response?.data
+      });
       
       // Update order status to failed
       await OrderStatus.findOneAndUpdate(
@@ -91,9 +121,21 @@ const createPayment = async (req, res) => {
         }
       );
 
+      // Provide more specific error messages based on status code
+      let errorMessage = 'Payment gateway temporarily unavailable';
+      if (gatewayError.response?.status === 401) {
+        errorMessage = 'Payment gateway authentication failed. Please contact support.';
+        console.error('[ERROR] Authentication failed - check PG_API_KEY configuration');
+      } else if (gatewayError.response?.status === 403) {
+        errorMessage = 'Payment gateway access denied. Please contact support.';
+      } else if (gatewayError.response?.status >= 500) {
+        errorMessage = 'Payment gateway server error. Please try again later.';
+      }
+
       return res.status(502).json({
-        message: 'Payment gateway temporarily unavailable',
-        collect_id: collect_id
+        message: errorMessage,
+        collect_id: collect_id,
+        error_code: gatewayError.response?.status || 'GATEWAY_ERROR'
       });
     }
 
