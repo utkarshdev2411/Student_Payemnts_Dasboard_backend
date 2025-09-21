@@ -21,6 +21,9 @@ const handleWebhook = async (req, res) => {
         throw new Error('Invalid webhook payload: missing order_id');
       }
 
+      console.log(`[INFO] Gateway status: ${gatewayStatus}`);
+      console.log(`[INFO] Order info:`, JSON.stringify(order_info, null, 2));
+
       const {
         order_id: collect_id,
         order_amount,
@@ -29,11 +32,13 @@ const handleWebhook = async (req, res) => {
         bank_reference,
         status: transactionStatus,
         payment_mode,
-        payemnt_details: payment_details, // Note: typo in original spec
+        payemnt_details: payment_details,
         Payment_message: payment_message,
         payment_time,
         error_message
       } = order_info;
+
+      console.log(`[DEBUG] Extracted values - Status: ${transactionStatus}, Payment Mode: ${payment_mode}, Gateway: ${gateway}`);
 
       // Add order_id to webhook log for easier tracking
       webhookLog.order_id = collect_id;
@@ -44,19 +49,46 @@ const handleWebhook = async (req, res) => {
         throw new Error(`Order with collect_id ${collect_id} not found`);
       }
 
+      console.log(`[DEBUG] Found order: ${order._id}, current gateway: ${order.gateway_name}`);
+
+      // Determine the correct gateway name with priority order
+      let gatewayName = null;
+      if (gateway && gateway.trim() !== '') {
+        gatewayName = gateway.trim();
+      } else if (payment_mode) {
+        // Map payment modes to readable names
+        const paymentModeMap = {
+          'card': 'Card Payment',
+          'upi': 'UPI',
+          'netbanking': 'Net Banking',
+          'wallet': 'Wallet'
+        };
+        gatewayName = paymentModeMap[payment_mode.toLowerCase()] || payment_mode.toUpperCase();
+      }
+      
+      console.log(`[DEBUG] Determined gateway name: ${gatewayName}`);
+
       // Update or create order status
       const updateData = {
         collect_id,
         order_amount: order_amount || 0,
         transaction_amount: transaction_amount || order_amount || 0,
-        payment_mode,
-        payment_details,
-        bank_reference,
-        payment_message,
+        payment_mode: payment_mode || null,
+        payment_details: payment_details || null,
+        bank_reference: bank_reference || null,
+        payment_message: payment_message || null,
         status: transactionStatus || 'pending',
         error_message: error_message && error_message !== 'NA' ? error_message : null,
-        payment_time: payment_time ? new Date(payment_time) : null
+        payment_time: payment_time ? new Date(payment_time) : (transactionStatus === 'success' ? new Date() : null)
       };
+
+      console.log(`[DEBUG] OrderStatus update data:`, JSON.stringify(updateData, null, 2));
+
+      // Update the gateway_name in Order if we have a valid gateway name
+      if (gatewayName) {
+        console.log(`[DEBUG] Updating Order gateway_name from '${order.gateway_name}' to '${gatewayName}'`);
+        await Order.findByIdAndUpdate(collect_id, { gateway_name: gatewayName });
+      }
 
       // Remove undefined/null values
       Object.keys(updateData).forEach(key => {
@@ -75,7 +107,17 @@ const handleWebhook = async (req, res) => {
         }
       );
 
-      console.log(`[INFO] Order status updated for collect_id: ${collect_id}, status: ${transactionStatus}`);
+      console.log(`[INFO] Order status updated for collect_id: ${collect_id}`);
+      console.log(`[DEBUG] Updated OrderStatus:`, JSON.stringify({
+        collect_id: updatedOrderStatus.collect_id,
+        status: updatedOrderStatus.status,
+        payment_mode: updatedOrderStatus.payment_mode,
+        payment_time: updatedOrderStatus.payment_time
+      }, null, 2));
+
+      // Verify the Order was also updated
+      const updatedOrder = await Order.findById(collect_id);
+      console.log(`[DEBUG] Updated Order gateway_name: ${updatedOrder.gateway_name}`);
 
       // Save successful webhook log
       await webhookLog.save();
@@ -160,7 +202,73 @@ const getWebhookLogs = async (req, res) => {
   }
 };
 
+// Development only: Simulate payment completion
+const simulatePaymentCompletion = async (req, res) => {
+  try {
+    const { collect_id, status = 'success', payment_mode = 'card' } = req.body;
+
+    if (!collect_id) {
+      return res.status(400).json({
+        message: 'collect_id is required'
+      });
+    }
+
+    // Simulate webhook payload
+    const simulatedWebhook = {
+      status: 200,
+      order_info: {
+        order_id: collect_id,
+        order_amount: 2000,
+        transaction_amount: 2000,
+        gateway: payment_mode === 'card' ? 'Card Payment' : 
+                payment_mode === 'upi' ? 'PhonePe' :
+                payment_mode === 'netbanking' ? 'Net Banking' :
+                payment_mode === 'wallet' ? 'Digital Wallet' : 'PhonePe',
+        bank_reference: `REF${Date.now()}`,
+        status: status,
+        payment_mode: payment_mode,
+        payemnt_details: `${payment_mode} payment completed successfully`,
+        Payment_message: status === 'success' ? 'Payment successful' : 'Payment failed',
+        payment_time: new Date().toISOString(),
+        error_message: status === 'failed' ? 'Test failure simulation' : 'NA'
+      }
+    };
+
+    // Create fake request object
+    const fakeReq = {
+      body: simulatedWebhook
+    };
+
+    // Create fake response object
+    const fakeRes = {
+      status: (code) => ({
+        json: (data) => {
+          console.log(`[DEV] Simulated webhook response: ${code}`, data);
+          return data;
+        }
+      })
+    };
+
+    // Call the webhook handler
+    await handleWebhook(fakeReq, fakeRes);
+
+    res.status(200).json({
+      message: `Payment status simulated successfully`,
+      collect_id,
+      simulated_status: status,
+      payment_mode
+    });
+
+  } catch (error) {
+    console.error('[ERROR] Simulate payment completion error:', error);
+    res.status(500).json({
+      message: 'Error simulating payment completion'
+    });
+  }
+};
+
 module.exports = {
   handleWebhook,
-  getWebhookLogs
+  getWebhookLogs,
+  simulatePaymentCompletion
 };

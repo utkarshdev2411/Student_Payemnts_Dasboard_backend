@@ -18,8 +18,8 @@ const createPayment = async (req, res) => {
     // Create order in database
     const order = new Order({
       school_id,
-      student_info,
-      gateway_name: 'PhonePe'
+      student_info
+      // gateway_name will be set by webhook or during payment processing
     });
 
     await order.save();
@@ -47,15 +47,18 @@ const createPayment = async (req, res) => {
     const sign = jwt.sign(signPayload, process.env.PG_KEY, { expiresIn: '1h' });
 
     // Prepare payment gateway request
+    const webhookUrl = `${process.env.WEBHOOK_BASE_URL || 'http://localhost:8000'}/api/webhook`;
     const gatewayPayload = {
       school_id,
       amount: order_amount,
       callback_url,
+      webhook_url: webhookUrl,
       sign,
       collect_request_id: collect_id.toString()
     };
 
     console.log(`[INFO] Calling payment gateway for order: ${collect_id}`);
+    console.log(`[INFO] Webhook URL set to: ${webhookUrl}`);
 
     // Call external payment gateway
     try {
@@ -89,6 +92,35 @@ const createPayment = async (req, res) => {
         const mockPaymentUrl = `https://dev-vanilla.edviron.com/payment?collect_id=${collect_id}&amount=${order_amount}`;
         console.log(`[WARNING] Using mock payment URL for development: ${mockPaymentUrl}`);
         
+        // For development: Auto-complete payment after 10 seconds
+        if (process.env.NODE_ENV !== 'production') {
+          setTimeout(async () => {
+            try {
+              console.log(`[DEV] Auto-completing payment for development: ${collect_id}`);
+              await OrderStatus.findOneAndUpdate(
+                { collect_id },
+                {
+                  status: 'success',
+                  payment_time: new Date(),
+                  payment_mode: 'card',
+                  payment_details: 'Development test payment',
+                  payment_message: 'Payment completed successfully (development mode)',
+                  bank_reference: `DEV${Date.now()}`
+                }
+              );
+              
+              // Update gateway name based on payment mode
+              await Order.findByIdAndUpdate(collect_id, { 
+                gateway_name: 'Development Gateway' 
+              });
+              
+              console.log(`[DEV] Payment auto-completed: ${collect_id}`);
+            } catch (devError) {
+              console.error(`[DEV] Error auto-completing payment:`, devError);
+            }
+          }, 10000); // 10 seconds delay
+        }
+        
         return res.status(200).json({
           payment_url: mockPaymentUrl,
           collect_id: collect_id,
@@ -112,12 +144,13 @@ const createPayment = async (req, res) => {
         data: gatewayError.response?.data
       });
       
-      // Update order status to failed
+        // Update order status to failed
       await OrderStatus.findOneAndUpdate(
         { collect_id },
         { 
           status: 'failed',
-          error_message: `Gateway error: ${gatewayError.message}`
+          error_message: `Gateway error: ${gatewayError.message}`,
+          payment_time: new Date()
         }
       );
 

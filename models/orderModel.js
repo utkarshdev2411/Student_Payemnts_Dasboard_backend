@@ -31,8 +31,7 @@ const orderSchema = new mongoose.Schema({
   },
   gateway_name: {
     type: String,
-    trim: true,
-    default: 'PhonePe'
+    trim: true
   }
 }, {
   timestamps: true

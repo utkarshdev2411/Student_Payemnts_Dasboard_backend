@@ -24,11 +24,23 @@ const paymentRoutes = require('./routes/payments');
 const transactionRoutes = require('./routes/transactions');
 const webhookRoutes = require('./routes/webhook');
 
+// Development routes (only in development mode)
+let devRoutes;
+if (process.env.NODE_ENV !== 'production') {
+  devRoutes = require('./routes/dev');
+}
+
 // Route middleware
 app.use('/api/auth', authRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/webhook', webhookRoutes);
+
+// Development routes (only in development mode)
+if (process.env.NODE_ENV !== 'production' && devRoutes) {
+  app.use('/api/dev', devRoutes);
+  console.log('[INFO] Development routes enabled at /api/dev');
+}
 
 // Basic health check route
 app.get('/', (req, res) => {
