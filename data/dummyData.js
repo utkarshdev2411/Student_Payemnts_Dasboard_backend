@@ -17,131 +17,135 @@ const users = [
   }
 ];
 
-// Generate dummy order data
-const orders = [
-  {
-    _id: new mongoose.Types.ObjectId(),
-    school_id: '65b0e6293e9f76a9694d84b4',
-    student_info: {
-      name: 'Alice Johnson',
-      id: 'STU101',
-      email: 'alice.j@example.com'
-    },
-    gateway_name: 'PhonePe',
-    createdAt: new Date('2024-09-15T10:30:00.000Z'),
-    updatedAt: new Date('2024-09-15T10:30:00.000Z')
-  },
-  {
-    _id: new mongoose.Types.ObjectId(),
-    school_id: '65b0e6293e9f76a9694d84b4',
-    student_info: {
-      name: 'Bob Smith',
-      id: 'STU102',
-      email: 'bob.smith@example.com'
-    },
-    gateway_name: 'Razorpay',
-    createdAt: new Date('2024-09-16T14:15:00.000Z'),
-    updatedAt: new Date('2024-09-16T14:15:00.000Z')
-  },
-  {
-    _id: new mongoose.Types.ObjectId(),
-    school_id: 'SCHOOL_B_ID',
-    student_info: {
-      name: 'Charlie Brown',
-      id: 'STU103',
-      email: 'charlie.b@example.com'
-    },
-    gateway_name: 'Razorpay',
-    createdAt: new Date('2024-09-17T09:00:00.000Z'),
-    updatedAt: new Date('2024-09-17T09:00:00.000Z')
-  },
-  {
-    _id: new mongoose.Types.ObjectId(),
-    school_id: '65b0e6293e9f76a9694d84b4',
-    student_info: {
-      name: 'Diana Prince',
-      id: 'STU104',
-      email: 'diana.prince@example.com'
-    },
-    gateway_name: 'PhonePe',
-    createdAt: new Date('2024-09-17T11:20:00.000Z'),
-    updatedAt: new Date('2024-09-17T11:20:00.000Z')
-  },
-  {
-    _id: new mongoose.Types.ObjectId(),
-    school_id: 'SCHOOL_C_ID',
-    student_info: {
-      name: 'Eva Green',
-      id: 'STU105',
-      email: 'eva.green@example.com'
-    },
-    gateway_name: 'PayU',
-    createdAt: new Date('2024-09-17T16:45:00.000Z'),
-    updatedAt: new Date('2024-09-17T16:45:00.000Z')
-  }
-];
+// Helper function to generate random data
+const getRandomElement = (array) => array[Math.floor(Math.random() * array.length)];
+const getRandomAmount = (min = 500, max = 5000) => Math.floor(Math.random() * (max - min + 1)) + min;
+const getRandomDate = (start, end) => new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 
-// Generate corresponding order status data
-const orderStatuses = [
-  {
-    collect_id: orders[0]._id,
-    order_amount: 1500,
-    transaction_amount: 1500,
-    payment_mode: 'upi',
-    payment_details: 'UPI ID: alice@okaxis, Bank: Axis Bank',
-    bank_reference: 'AXI123456789',
-    payment_message: 'Payment successful',
-    status: 'success',
-    payment_time: new Date('2024-09-15T10:35:00.000Z'),
-    createdAt: new Date('2024-09-15T10:30:00.000Z'),
-    updatedAt: new Date('2024-09-15T10:35:00.000Z')
-  },
-  {
-    collect_id: orders[1]._id,
-    order_amount: 2000,
-    transaction_amount: null,
-    payment_mode: null,
-    status: 'pending',
-    payment_time: null,
-    createdAt: new Date('2024-09-16T14:15:00.000Z'),
-    updatedAt: new Date('2024-09-16T14:15:00.000Z')
-  },
-  {
-    collect_id: orders[2]._id,
-    order_amount: 500,
-    transaction_amount: null,
-    payment_mode: 'card',
-    payment_details: 'Card Type: Credit, Last Four: 4567',
-    status: 'failed',
-    error_message: 'Insufficient funds',
-    payment_time: null,
-    createdAt: new Date('2024-09-17T09:00:00.000Z'),
-    updatedAt: new Date('2024-09-17T09:05:00.000Z')
-  },
-  {
-    collect_id: orders[3]._id,
-    order_amount: 3000,
-    transaction_amount: 3000,
-    payment_mode: 'upi',
-    payment_details: 'UPI ID: diana@paytm, Bank: HDFC Bank',
-    bank_reference: 'HDFC987654321',
-    payment_message: 'Payment completed',
-    status: 'success',
-    payment_time: new Date('2024-09-17T11:25:00.000Z'),
-    createdAt: new Date('2024-09-17T11:20:00.000Z'),
-    updatedAt: new Date('2024-09-17T11:25:00.000Z')
-  },
-  {
-    collect_id: orders[4]._id,
-    order_amount: 1200,
-    transaction_amount: null,
-    payment_mode: null,
-    status: 'pending',
-    payment_time: null,
-    createdAt: new Date('2024-09-17T16:45:00.000Z'),
-    updatedAt: new Date('2024-09-17T16:45:00.000Z')
+// Sample data arrays
+const firstNames = ['Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Reyansh', 'Ayaan', 'Krishna', 'Ishaan', 'Shaurya', 'Atharv', 'Advik', 'Pranav', 'Ananya', 'Fatima', 'Ira', 'Prisha', 'Anvi', 'Riya', 'Navya', 'Diya', 'Pihu', 'Anushka', 'Kavya', 'Anika', 'Myra', 'Sara', 'Aditi', 'Kiara'];
+const lastNames = ['Sharma', 'Verma', 'Gupta', 'Kumar', 'Singh', 'Agarwal', 'Patel', 'Jain', 'Bansal', 'Agrawal', 'Goyal', 'Jindal', 'Arora', 'Malhotra', 'Chopra', 'Kapoor', 'Mehta', 'Khanna', 'Sinha', 'Joshi', 'Saxena', 'Mittal', 'Garg', 'Bhatia', 'Tandon', 'Sethi', 'Bhardwaj', 'Tiwari', 'Pandey', 'Mishra'];
+const gateways = ['PhonePe', 'Razorpay', 'PayU', 'Paytm', 'CCAvenue', 'Cashfree'];
+const schoolIds = ['65b0e6293e9f76a9694d84b4', '65b0e6293e9f76a9694d84b5', '65b0e6293e9f76a9694d84b6', '65b0e6293e9f76a9694d84b7', '65b0e6293e9f76a9694d84b8'];
+const paymentModes = ['upi', 'card', 'netbanking', 'wallet'];
+const statuses = ['success', 'pending', 'failed', 'cancelled'];
+const banks = ['HDFC Bank', 'ICICI Bank', 'Axis Bank', 'SBI', 'Kotak Bank', 'Yes Bank', 'IndusInd Bank', 'BOB', 'Canara Bank', 'PNB'];
+const upiProviders = ['paytm', 'phonepe', 'gpay', 'amazonpay', 'mobikwik', 'freecharge'];
+
+// Generate 100 orders
+const orders = [];
+const orderStatuses = [];
+
+for (let i = 1; i <= 100; i++) {
+  const orderId = new mongoose.Types.ObjectId();
+  const firstName = getRandomElement(firstNames);
+  const lastName = getRandomElement(lastNames);
+  const studentName = `${firstName} ${lastName}`;
+  const studentId = `STU${String(i).padStart(4, '0')}`;
+  const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}@example.com`;
+  const gateway = getRandomElement(gateways);
+  const schoolId = getRandomElement(schoolIds);
+  
+  // Generate random dates in the last 30 days
+  const now = new Date('2024-09-21');
+  const startDate = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000)); // 30 days ago
+  const createdAt = getRandomDate(startDate, now);
+  const updatedAt = new Date(createdAt.getTime() + Math.random() * (2 * 60 * 60 * 1000)); // Up to 2 hours later
+
+  const order = {
+    _id: orderId,
+    school_id: schoolId,
+    student_info: {
+      name: studentName,
+      id: studentId,
+      email: email
+    },
+    gateway_name: gateway,
+    createdAt: createdAt,
+    updatedAt: updatedAt
+  };
+
+  orders.push(order);
+
+  // Generate order status for each order
+  const orderAmount = getRandomAmount(500, 5000);
+  const status = getRandomElement(statuses);
+  const paymentMode = status === 'pending' ? null : getRandomElement(paymentModes);
+  
+  let transactionAmount = null;
+  let paymentDetails = null;
+  let bankReference = null;
+  let paymentMessage = null;
+  let errorMessage = null;
+  let paymentTime = null;
+
+  if (status === 'success') {
+    transactionAmount = orderAmount;
+    paymentTime = new Date(updatedAt.getTime() + Math.random() * (30 * 60 * 1000)); // Within 30 minutes
+    
+    if (paymentMode === 'upi') {
+      const upiProvider = getRandomElement(upiProviders);
+      const bank = getRandomElement(banks);
+      paymentDetails = `UPI ID: ${firstName.toLowerCase()}@${upiProvider}, Bank: ${bank}`;
+      bankReference = `${bank.substring(0, 3).toUpperCase()}${Math.floor(Math.random() * 1000000000)}`;
+      paymentMessage = 'Payment successful';
+    } else if (paymentMode === 'card') {
+      const cardType = Math.random() > 0.5 ? 'Credit' : 'Debit';
+      const lastFour = Math.floor(Math.random() * 9000) + 1000;
+      paymentDetails = `Card Type: ${cardType}, Last Four: ${lastFour}`;
+      bankReference = `CARD${Math.floor(Math.random() * 1000000000)}`;
+      paymentMessage = 'Payment completed successfully';
+    } else if (paymentMode === 'netbanking') {
+      const bank = getRandomElement(banks);
+      paymentDetails = `Bank: ${bank}`;
+      bankReference = `NB${Math.floor(Math.random() * 1000000000)}`;
+      paymentMessage = 'Net banking payment successful';
+    } else if (paymentMode === 'wallet') {
+      const walletProvider = getRandomElement(['Paytm', 'PhonePe', 'Amazon Pay', 'MobiKwik']);
+      paymentDetails = `Wallet: ${walletProvider}`;
+      bankReference = `WALLET${Math.floor(Math.random() * 1000000000)}`;
+      paymentMessage = 'Wallet payment successful';
+    }
+  } else if (status === 'failed') {
+    const errorMessages = [
+      'Insufficient funds',
+      'Transaction declined by bank',
+      'Card expired',
+      'Invalid PIN',
+      'Payment gateway timeout',
+      'Technical error occurred'
+    ];
+    errorMessage = getRandomElement(errorMessages);
+    
+    if (paymentMode === 'card') {
+      const cardType = Math.random() > 0.5 ? 'Credit' : 'Debit';
+      const lastFour = Math.floor(Math.random() * 9000) + 1000;
+      paymentDetails = `Card Type: ${cardType}, Last Four: ${lastFour}`;
+    } else if (paymentMode === 'upi') {
+      const upiProvider = getRandomElement(upiProviders);
+      paymentDetails = `UPI ID: ${firstName.toLowerCase()}@${upiProvider}`;
+    }
+  } else if (status === 'cancelled') {
+    errorMessage = 'Payment cancelled by user';
   }
-];
+
+  const orderStatus = {
+    collect_id: orderId,
+    order_amount: orderAmount,
+    transaction_amount: transactionAmount,
+    payment_mode: paymentMode,
+    payment_details: paymentDetails,
+    bank_reference: bankReference,
+    payment_message: paymentMessage,
+    status: status,
+    error_message: errorMessage,
+    payment_time: paymentTime,
+    createdAt: createdAt,
+    updatedAt: updatedAt
+  };
+
+  orderStatuses.push(orderStatus);
+}
 
 module.exports = {
   users,
